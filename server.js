@@ -1,7 +1,7 @@
 console.log("opened server");
 import { randomInt } from "node:crypto";
 import {WebSocketServer} from "ws";
-const wss = new WebSocketServer({port:8080});
+const wss = new WebSocketServer({port:PORT});
 const TICK_RATE = 30;
 const ARENA_SIZE = 250;
 const players = new Map();
