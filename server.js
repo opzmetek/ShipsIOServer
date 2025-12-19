@@ -1,7 +1,7 @@
 console.log("opened server");
-import { randomInt } from "node:crypto";
+import crypto,{ randomInt } from "node:crypto";
 import {WebSocketServer} from "ws";
-const wss = new WebSocketServer({port:process.env.PORT|8080});
+const wss = new WebSocketServer({port:process.env.PORT||8080});
 const TICK_RATE = 30;
 const ARENA_SIZE = 250;
 const players = new Map();
@@ -13,7 +13,7 @@ wss.on("connection",(ws)=>{
     ws.send(JSON.stringify({type:"init",id}));
     
     ws.on("message",(message)=>{
-        const data = JSON.parse(message.data);
+        const data = JSON.parse(message.toString());
         const player = players.get(id);
         switch(data.type){
             case "move":
@@ -90,7 +90,7 @@ setInterval(()=>{
 
     players.forEach(p=>{
         const ws = p.socket;
-        const snapshot = p.nearPlayers.map(n=>players[n.id]).filter(n=>n&&n.updated);
+        const snapshot = p.nearPlayers.map(n=>players[n]).filter(n=>n&&n.updated);
         ws.send(JSON.stringify({type:"state",snapshot}));
     });
 
