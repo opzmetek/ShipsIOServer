@@ -13,9 +13,9 @@ wss.on("connection",(ws)=>{
     ws.send(JSON.stringify({type:"init",id}));
     
     ws.on("message",(message)=>{
-        const data = JSON.parse(message);
+        const data = JSON.parse(message.data);
         const player = players.get(id);
-        switch(message.type){
+        switch(data.type){
             case "move":
                 player.vx+=data.vx||0;
                 player.vy+=data.vy||0;
@@ -27,7 +27,8 @@ wss.on("connection",(ws)=>{
                 player.name=data.name;
                 console.log("name"+data.name);
                 break;
-
+            default:
+                console.error("Unsupported type: "+data.type)
         }
     });
     
