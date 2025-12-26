@@ -15,8 +15,7 @@ class Ship{
         this.bulletSpeed=bulletSpeed;
         this.bulletSize=bulletSize;
         this.bulletPenetration=bulletPenetration;
-        this.sinStep = Math.sin(steering);
-        this.cosStep = Math.cos(steering);
+        this.steering = steering;
     }
 }
 
@@ -26,7 +25,7 @@ const ships = Object.freeze({
 });
 
 wss.on("connection",(ws)=>{
-    const id = crypto.randomUUID();
+    const id = crypto.randomInt(0,65535);
     players.set(id,new Player(id,id,ws));
     ws.send(JSON.stringify({type:"init",id}));
     
@@ -87,8 +86,9 @@ class Player{
         this.id=id;
         this.x=-ARENA_SIZE+randomInt(ARENA_SIZE*2);
         this.y=-ARENA_SIZE+randomInt(ARENA_SIZE*2);
+        this.speed = 0;
+        this.angle = Math.random()*Math.PI*2;
         this.vector = new Vector2();
-        this.acc=0;
         this.cx=0;
         this.cy=0;
         const nearPlayers = [];
@@ -103,11 +103,15 @@ class Player{
     }
 
     update(){
-        this.acc=Math.max(-this.ship.speed,Math.min(this.ship.speed,this.acc+this.cx*0.1*this.ship.speed));
-        this.vector.scale(this.acc);
-        if(this.cy===1)this.vector.rotate(this.ship.sinStep,this.ship.cosStep);
-        if(this.cy===-1)this.vector.rotate(-this.ship.sinStep,-this.ship.cosStep);
+        this.angle+=this.cy*this.ship.steering;
+        this.speed = Math.max(-this.ship.speed,Math.min(this.ship.speed,this.speed+cx));
+        this.vector.x+=Math.cos(this.angle)*this.speed;
+        this.vector.y+=Math.sin(this.angle)*this.speed;
     }
+}
+
+function getPlayerDeltaArray(p){
+    return [p.x,p.y,p.vector.x,p.vector.y,p.angle,p.id];
 }
 
 class Bullet{
@@ -125,17 +129,22 @@ class Bullet{
 
 setInterval(()=>{
     players.forEach(p=>{
-        if(p.vector.x!==0&&p.vector.y!==0){
+        if(p.vector.x!==0||p.vector.y!==0){
             p.x+=p.vector.x;
             p.y+=p.vector.y;
             p.updated = true;
         }
     });
 
+    const snapshot = [];
+    for(const p of player.values()){
+        snapshot.push(...getPlayerDeltaArray(p));
+    }
+    const s = new Float32Array(snapshot);
+
     players.forEach(p=>{
         const ws = p.socket;
-        const snapshot = p.nearPlayers.map(n=>players[n]).filter(n=>n&&n.updated);
-        ws.send(JSON.stringify({type:"state",snapshot}));
+        ws.send(s.buffer);
     });
 
     players.forEach(p=>p.updated=false);
