@@ -3,7 +3,7 @@ import crypto,{ randomInt } from "node:crypto";
 import {WebSocketServer} from "ws";
 const wss = new WebSocketServer({port:process.env.PORT||8080});
 const TICK_RATE = 30;
-const ARENA_SIZE = 250;
+const ARENA_SIZE = 15;
 const players = new Map();
 const bullets = [];
 
