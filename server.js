@@ -137,7 +137,7 @@ setInterval(()=>{
     });
 
     const snapshot = [];
-    for(const p of player.values()){
+    for(const p of players.values()){
         snapshot.push(...getPlayerDeltaArray(p));
     }
     const s = new Float32Array(snapshot);
