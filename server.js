@@ -7,7 +7,7 @@ const ARENA_SIZE = 250;
 const players = new Map();
 const bullets = [];
 
-class Ship(){
+class Ship{
     constructor(hp,dmg,speed,bulletSpeed,bulletSize,bulletPenetration,steering){
         this.hp=hp;
         this.dmg=dmg;
