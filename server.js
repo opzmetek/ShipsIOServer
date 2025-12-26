@@ -5,6 +5,7 @@ const wss = new WebSocketServer({port:process.env.PORT||8080});
 const TICK_RATE = 30;
 const ARENA_SIZE = 15;
 const GRID_SIZE = 10;
+const INV_GRID_SIZE = 1/GRID_SIZE;
 const players = new Map();
 const bullets = [];
 const GRID_COUNT = Math.ceil(ARENA_SIZE/GRID_SIZE);
@@ -105,8 +106,8 @@ wss.on("connection",(ws)=>{
         const player = players.get(id);
         switch(data.type){
             case "move":
-                player.cx+=data.vx||0;
-                player.cy+=data.vy||0;
+                player.cx=clamp(-1,1,data.vx)||player.cx;
+                player.cy=clamp(-1,1,data.vy)||player.cy;
                 break;
             case "shoot":
                 bullets.push(new Bullet(id,player.x,player.y,10,0.1,2));
@@ -134,7 +135,11 @@ wss.on("connection",(ws)=>{
 });
 
 function setCell(x,y,o){
-    grid[Math.floor(x)]?.[Math.floor(y)]?.add(o);
+    grid[Math.floor(x+ARENA_SIZE)]?.[Math.floor(y+ARENA_SIZE)]?.add(o);
+}
+
+function clamp(min,max,v){
+    return Math.max(min,Math.min(max,v));
 }
 
 class Player{
@@ -158,8 +163,8 @@ class Player{
         this.speed = Math.max(-this.ship.speed,Math.min(this.ship.speed,this.speed+this.cx));
         this.sin = Math.sin(this.angle);
         this.cos = Math.cos(this.angle);
-        this.vector.x+=this.cos*this.speed;
-        this.vector.y+=this.sin*this.speed;
+        this.vector.x=this.cos*this.speed;
+        this.vector.y=this.sin*this.speed;
         this.setCells();
     }
 
@@ -217,6 +222,13 @@ function getPlayerDeltaArray(p){
     return [p.c.x,p.c.y,p.vector.x,p.vector.y,p.angle,p.id];
 }
 
+function arraySwapRemove(arr,i){
+    const last = arr.pop();
+    if(i<arr.length){
+        arr[i]=last;
+    }
+}
+
 class Bullet{
     constructor(id,x,y,vx,vy,dmg,size,penetration){
         this.c = new Vector2(x,y);
@@ -228,35 +240,59 @@ class Bullet{
         this.owner=id;
         this.isBullet = true;
     }
+    static newBullet(a,b,c,d,e,f,g,h){
+        if(!Bullet.pool)Bullet.pool = [];
+        const old = Bullet.pool.pop();
+        if(!old)return new Bullet(a,b,c,d,e,f,g,h);
+        old.c.x=b;
+        old.c.y=c;
+        old.vx=d;
+        old.vy=e;
+        old.dmg=f;
+        old.size=g;
+        old.penetration=h;
+        old.owner=a;
+        return old;
+    }
+    remove(){
+        if(!Bullet.pool)Bullet.pool = [];
+        Bullet.pool.push(this);
+    }
 }
 
 setInterval(()=>{
-    for(const row of grid){
-        for(const node of row){
-            for(let i=0;i<node.items.length;i++){
-                const n1 = node.items[i];
-                for(let j=i+1;j<node.items.length;j++){
-                    const n2 = node.items[j];
-                    if(n1===n2||(n1.owner&&n1.owner===n2.id||n2.owner&&n2.owner===n1.id))continue;
-                    if(n1.isBullet&&n2.isBullet)continue;
-                    if(!n1.isBullet&&!n2.isBullet){
-                        if(n1.c.subImm(n2.c).sq()>(n1.ship.half.max()+n2.ship.half.max())**2)continue;
-                        if(n1.collide(n2)){
-                            n1.hp-=20;//placeholders
-                            n2.hp-=20;
-                        }
-                        continue;
-                    }else{
-                        let bullet,ship;
-                        if(n1.isBullet){bullet=n1;ship=n2;}
-                        else {bullet=n2;ship=n1;}
-                        if(ship.c.subImm(bullet.c).sq()>(ship.ship.half.max()+bullet.size)**2)continue;
-                        if(ship.collideBullet(bullet)){
-                            ship.hp-=bullet.dmg;
-                            node.delete(bullet);
-                        }
-                    }
-                }
+    bulletLoop:
+    for(let i=0;i<bullets.length;i++){
+        const b=bullets[i];
+        const cx = Math.floor(b.c.x*INV_GRID_SIZE);
+        const cy = Math.floor(b.c.y*INV_GRID_SIZE);
+        const cell = grid[cx][cy];
+        if(!cell||cell.size()===0)continue;
+        for(const ship of cell){
+            if(b.owner===ship.id)continue;
+            const dx = ship.c.x - b.c.x;
+            const dy = ship.c.y - b.c.y;
+            if (dx*dx + dy*dy > (ship.ship.half.max()+b.size)) continue;
+            if(ship.collideBullet(b)){
+                ship.hp-=b.dmg;
+                b.remove();
+                arrSwapRemove(bullets,i);
+                continue bulletLoop;
+            }
+        }
+    }
+
+    const ps = Array.from(players.values());
+    for(let i=0;i<ps.length;i++){
+        const a = ps[i];
+        for(let j=i+1;j<ps.length;j++){
+            const b = ps[j];
+            const dx = a.c.x - b.c.x;
+            const dy = a.c.y - b.c.y;
+            if (dx*dx + dy*dy > (a.ship.half.max()+b.ship.half.max())) continue;
+            if(a.collide(b)){
+                a.hp-=20;
+                b.hp-=20;
             }
         }
     }
@@ -281,4 +317,9 @@ setInterval(()=>{
     });
 
     players.forEach(p=>p.updated=false);
+    for(const row of grid){
+        for(const node of row){
+            node.clear();
+        }
+    }
 },1000/TICK_RATE);
