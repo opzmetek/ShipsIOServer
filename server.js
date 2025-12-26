@@ -7,6 +7,24 @@ const ARENA_SIZE = 250;
 const players = new Map();
 const bullets = [];
 
+class Ship(){
+    constructor(hp,dmg,speed,bulletSpeed,bulletSize,bulletPenetration,steering){
+        this.hp=hp;
+        this.dmg=dmg;
+        this.speed=speed;
+        this.bulletSpeed=bulletSpeed;
+        this.bulletSize=bulletSize;
+        this.bulletPenetration=bulletPenetration;
+        this.sinStep = Math.sin(steering);
+        this.cosStep = Math.cos(steering);
+    }
+}
+
+const S = (a,b,c,d,e,f,g)=>new Ship(a,b,c,d,e,f,g);
+const ships = Object.freeze({
+    basic:S(100,10,1,2,0.1,2,0.1)
+});
+
 wss.on("connection",(ws)=>{
     const id = crypto.randomUUID();
     players.set(id,new Player(id,id,ws));
@@ -17,8 +35,9 @@ wss.on("connection",(ws)=>{
         const player = players.get(id);
         switch(data.type){
             case "move":
-                player.vx+=data.vx||0;
-                player.vy+=data.vy||0;
+                player.cx+=data.vx||0;
+                player.cy+=data.vy||0;
+                player.update();
                 break;
             case "shoot":
                 bullets.push(new Bullet(id,player.x,player.y,10,0.1,2));
@@ -45,14 +64,33 @@ wss.on("connection",(ws)=>{
     console.log("connected!");
 });
 
+class Vector2{
+    constructor(x,y){
+        this.x=x||0;
+        this.y=y||0;
+    }
+    len(){return Math.hypot(this.x,this.y);}
+    norm(){const l=this.len();this.x/=l;this.y/=l;return this;}
+    rotate(s,c){const xc=this.x;this.x=this.x*c-this.y*s;this.y=xc*s+this.y*c;return this;}
+    add(v){this.x+=v.x;this.y+=v.y;return this;}
+    sub(v){this.x-=v.x;this.y-=v.y;return this;}
+    abs(){this.x=Math.abs(this.x);this.y=Math.abs(this.y);return this;}
+    dot(v){return this.x*v.x+this.y*v.y;}
+    sq(){return this.x**2+this.y**2;}
+    scale(n){this.x*=n;this.y*=n;return this;}
+    static one(n){return new Vector2(n,n);}
+}
+
 class Player{
     constructor(name,id,ws){
         this.name=name;
         this.id=id;
-        this.x=ARENA_SIZE+randomInt(ARENA_SIZE*2);
-        this.y=ARENA_SIZE+randomInt(ARENA_SIZE*2);
-        this.vx=0;
-        this.vy=0;
+        this.x=-ARENA_SIZE+randomInt(ARENA_SIZE*2);
+        this.y=-ARENA_SIZE+randomInt(ARENA_SIZE*2);
+        this.vector = new Vector2();
+        this.acc=0;
+        this.cx=0;
+        this.cy=0;
         const nearPlayers = [];
         for(const p of players.values()){
             const dx = p.x-this.x,dy=p.y-this.y;
@@ -61,6 +99,14 @@ class Player{
         this.nearPlayers = nearPlayers;
         this.socket=ws;
         this.updated = true;
+        this.ship = ships.basic;
+    }
+
+    update(){
+        this.acc=Math.max(-this.ship.speed,Math.min(this.ship.speed,this.acc+this.cx*0.1*this.ship.speed));
+        this.vector.scale(this.acc);
+        if(this.cy===1)this.vector.rotate(this.ship.sinStep,this.ship.cosStep);
+        if(this.cy===-1)this.vector.rotate(-this.ship.sinStep,-this.ship.cosStep);
     }
 }
 
@@ -79,11 +125,9 @@ class Bullet{
 
 setInterval(()=>{
     players.forEach(p=>{
-        if(p.vx!==0||p.vy!==0){
-            p.x+=p.vx;
-            p.y+=p.vy;
-            p.vx=0;
-            p.vy=0;
+        if(p.vector.x!==0&&p.vector.y!==0){
+            p.x+=p.vector.x;
+            p.y+=p.vector.y;
             p.updated = true;
         }
     });
@@ -95,4 +139,4 @@ setInterval(()=>{
     });
 
     players.forEach(p=>p.updated=false);
-},TICK_RATE);
+},1000/TICK_RATE);
