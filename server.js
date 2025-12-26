@@ -68,6 +68,28 @@ class Ship{
     }
 }
 
+class Vector2{
+    constructor(x,y){
+        this.x=x||0;
+        this.y=y||0;
+    }
+    len(){return Math.hypot(this.x,this.y);}
+    norm(){const l=this.len();this.x/=l;this.y/=l;return this;}
+    rotate(s,c){const xc=this.x;this.x=this.x*c-this.y*s;this.y=xc*s+this.y*c;return this;}
+    add(v){this.x+=v.x;this.y+=v.y;return this;}
+    sub(v){this.x-=v.x;this.y-=v.y;return this;}
+    abs(){this.x=Math.abs(this.x);this.y=Math.abs(this.y);return this;}
+    dot(v){return this.x*v.x+this.y*v.y;}
+    sq(){return this.x**2+this.y**2;}
+    clone(){return new Vector2(this.x,this.y);}
+    scale(n){this.x*=n;this.y*=n;return this;}
+    max(){return Math.max(this.x,this.y);}
+    min(){return Math.min(this.x,this.y);}
+    subImm(v){return new Vector2(this.x-v.x,this.y-v.y);}
+    addImm(v){return new Vector2(this.x+v.x,this.y+v.y);}
+    static one(n){return new Vector2(n,n);}
+}
+
 const S = (a,b,c,d,e,f,g)=>new Ship(a,b,c,d,e,f,g);
 const ships = Object.freeze({
     basic:S(100,10,1,2,0.1,2,0.01,1,2)
@@ -110,28 +132,6 @@ wss.on("connection",(ws)=>{
 
     console.log("connected!");
 });
-
-class Vector2{
-    constructor(x,y){
-        this.x=x||0;
-        this.y=y||0;
-    }
-    len(){return Math.hypot(this.x,this.y);}
-    norm(){const l=this.len();this.x/=l;this.y/=l;return this;}
-    rotate(s,c){const xc=this.x;this.x=this.x*c-this.y*s;this.y=xc*s+this.y*c;return this;}
-    add(v){this.x+=v.x;this.y+=v.y;return this;}
-    sub(v){this.x-=v.x;this.y-=v.y;return this;}
-    abs(){this.x=Math.abs(this.x);this.y=Math.abs(this.y);return this;}
-    dot(v){return this.x*v.x+this.y*v.y;}
-    sq(){return this.x**2+this.y**2;}
-    clone(){return new Vector2(this.x,this.y);}
-    scale(n){this.x*=n;this.y*=n;return this;}
-    max(){return Math.max(this.x,this.y);}
-    min(){return Math.min(this.x,this.y);}
-    subImm(v){return new Vector2(this.x-v.x,this.y-v.y);}
-    addImm(v){return new Vector2(this.x+v.x,this.y+v.y);}
-    static one(n){return new Vector2(n,n);}
-}
 
 function setCell(x,y,o){
     grid[Math.floor(x)]?.[Math.floor(y)]?.add(o);
