@@ -98,8 +98,15 @@ const ships = Object.freeze({
 
 wss.on("connection",(ws)=>{
     const id = crypto.randomInt(0,65535);
-    players.set(id,new Player(id,id,ws));
-    ws.send(JSON.stringify({type:"init",id}));
+    const pl = new Player(id,id,ws);
+    const setup = [];
+    const da = getPlayrDeltaArray(pl);
+    for(const p of players.values()){
+        setup.push(...getPlayerDeltaArray(p));
+        p.socket.send(JSON.stringify({type:"connect",player:da}));
+    }
+    players.set(id,pl);
+    ws.send(JSON.stringify({type:"init",id,setup}));
     
     ws.on("message",(message)=>{
         const data = JSON.parse(message.toString());
