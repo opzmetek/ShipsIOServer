@@ -96,32 +96,39 @@ const ships = Object.freeze({
     basic:S(100,10,1,2,0.1,2,0.01,1,2)
 });
 
-wss.on("connection",(ws)=>{
+function getPlayerConnectInfo(p){
+    return [p.i,p.name,p.c.x,p.c.y,p.ship];
+}
+
+wss.on("connection",(ws,req)=>{
     const id = crypto.randomInt(0,65535);
-    const pl = new Player(id,id,ws);
-    const setup = [];
-    const da = getPlayrDeltaArray(pl);
-    for(const p of players.values()){
-        setup.push(...getPlayerDeltaArray(p));
-        p.socket.send(JSON.stringify({type:"connect",player:da}));
-    }
-    players.set(id,pl);
-    ws.send(JSON.stringify({type:"init",id,setup}));
+    const pl = new Player(id,ws);
     
     ws.on("message",(message)=>{
         const data = JSON.parse(message.toString());
-        const player = players.get(id);
         switch(data.type){
             case "move":
-                player.cx=clamp(-1,1,data.vx)||player.cx;
-                player.cy=clamp(-1,1,data.vy)||player.cy;
+                pl.cx=clamp(-1,1,data.vx)||pl.cx;
+                pl.cy=clamp(-1,1,data.vy)||pl.cy;
                 break;
             case "shoot":
-                bullets.push(new Bullet(id,player.x,player.y,10,0.1,2));
+                bullets.push(new Bullet(id,pl.x,pl.y,10,0.1,2));
                 break;
             case "init":
-                player.name=data.name;
-                console.log("name"+data.name);
+                if(pl.name){
+                    console.error("Suspicious player sent secondary init: IP: "+req.socket.remoteAdress+", name: "+pl.name+", new name: "+data.name);
+                    ws.close(4005,"Suspicious name change request");
+                }
+                pl.name=data.name;
+                console.log("name: "+data.name);
+                const setup = [];
+                const da = JSON.stringify({type:"connect",player:getPlayerConnectInfo(pl)});
+                for(const p of players.values()){
+                    setup.push(getPlayerConnectInfo(p));
+                    p.socket.send(da);
+                }
+                players.set(id,pl);
+                ws.send(JSON.stringify({type:"init",id,setup}));
                 break;
             default:
                 console.error("Unsupported type: "+data.type)
@@ -150,8 +157,8 @@ function clamp(min,max,v){
 }
 
 class Player{
-    constructor(name,id,ws){
-        this.name=name;
+    constructor(id,ws){
+        this.name=null;
         this.id=id;
         this.c=new Vector2(-ARENA_SIZE+randomInt(ARENA_SIZE*2),-ARENA_SIZE+randomInt(ARENA_SIZE*2));
         this.speed = 0;
