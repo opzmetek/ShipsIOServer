@@ -97,7 +97,7 @@ const ships = Object.freeze({
 });
 
 function getPlayerConnectInfo(p){
-    return [p.i,p.name,p.c.x,p.c.y,p.ship];
+    return [p.id,p.name,p.c.x,p.c.y,p.ship];
 }
 
 wss.on("connection",(ws,req)=>{
