@@ -141,6 +141,9 @@ wss.on("connection",(ws,req)=>{
             const b=bullets[i];
             if(b.owner===id)bullets.splice(i,1);
         }
+        players.values().forEach(p=>{
+            p.socket.send(JSON.stringify({type:"disconnect",id}));
+        });
     }
     ws.on("close",callback);
     ws.on("error",callback);
